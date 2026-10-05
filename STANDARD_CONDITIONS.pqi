@@ -1,0 +1,283 @@
+DATABASE C:\Program Files (x86)\USGS\Phreeqc Interactive 3.8.6-17100\database\Kinec_v3.dat
+TITLE CO2 Storage in Basalt - Porosity & Permeability Changes
+
+# ------------------------------------------------------------------
+# 1. INITIAL POREWATER SOLUTION
+# ------------------------------------------------------------------
+SOLUTION 1 Basalt Porewater
+    units       mmol/l
+    temp        120.0
+    pressure    252
+    pH          9
+    Al          0.873
+    B           0.0727
+    Na          7.35
+    Cl          3.65
+    Fe          0.00071
+    Ca          0.025
+    K           0.73
+    Mg          0.0041
+    F           0.125
+    S(6)        0.341     # SO4
+    S(-2)       0.955     # H2S
+    C           20.219    # Total Dissolved Inorganic Carbon
+    Si          11.0 as SiO2
+    Mn          0.0003
+    -water      1.0       # 1 kg H2O
+
+# ------------------------------------------------------------------
+# THERMODYNAMIC PHASES DEFINITION
+# ------------------------------------------------------------------
+PHASES
+Calcite
+    CaCO3 + H+ = Ca+2 + HCO3-
+    log_k       1.8487
+    -delta_H    -25.7149 kJ/mol
+    -analytic   -1.4978e2 -4.8370e-2 4.8974e3 6.0458e1 7.6464e1
+
+Ankerite
+    CaFe(CO3)2 = Ca+2 + Fe+2 + 2 CO3-2
+    log_k       -20.8732
+    -analytic   6743.14 2.3089 -252723.6 -2681.49 9.661e6 -0.00088
+    -Vm         66.060
+
+Rhodochrosite
+    MnCO3 + H+ = Mn+2 + HCO3-
+    log_k       -0.1928
+    -delta_H    -21.3426 kJ/mol
+    -analytic   -1.6195e2 -4.9344e-2 5.0937e3 6.4402e1 7.9531e1
+    -Vm         31.075
+
+Aragonite
+    CaCO3 + H+ = Ca+2 + HCO3-
+    log_k       1.9931
+    -delta_H    -25.8027 kJ/mol
+    -analytic   -1.4934e2 -4.8043e-2 4.9089e3 6.0284e1 7.6644e1
+    -Vm         34.15
+
+Siderite #M 115.856
+	FeCO3 = Fe+2 + CO3-2
+	log_k		-11.0441 # carbfix.dat
+      -delta_h  -2.480 kcal
+	-analytic	349.4317054926304 0.03628114046578195 -13573.811090861998 -131.65143185871804 0 0 # carbfix.dat
+	-Vm			29.378 # core10.dat
+
+# ------------------------------------------------------------------
+# 2. FIXED PRESSURE GAS PHASE & SECONDARY MINERAL PRECIPITATION
+# ------------------------------------------------------------------
+EQUILIBRIUM_PHASES 1
+    CO2(g)           2.4                 1000.0           # Continuous high-pressure CO2 plume
+    Calcite          0.0                 0.0             precipitate_only
+    Ankerite         0.0                 0.0             precipitate_only
+    Rhodochrosite    0.0                 0.0             precipitate_only
+    Aragonite        0.0                 0.0             precipitate_only
+    #Siderite         0.0                 0.0             precipitate_only
+
+# Add secondary silicates/clays to consume Si and Al
+    Chalcedony       0.0                 0.0             precipitate_only
+    Kaolinite        0.0                 0.0             precipitate_only
+    Montmor-Ca       0.0                 0.0             precipitate_only #smectite
+    Montmor-Na       0.0                 0.0             precipitate_only #smectite      
+
+# ------------------------------------------------------------------
+# 3. KINETIC DISSOLUTION RATES
+# ------------------------------------------------------------------
+RATES
+
+#Albite
+#  -start
+#  10 R = 8.314 : T_K = TK
+#  20 Ea_acid = 58000.0 : Ea_neut = 60000.0 : Ea_base = 50000.0
+#  30 k_acid = 10^-10.16 * EXP((-Ea_acid / R) * ((1.0 / T_K) - (1.0 / 298.15))) * (ACT("H+")^0.457)
+#  40 k_neut = 10^-12.56 * EXP((-Ea_neut / R) * ((1.0 / T_K) - (1.0 / 298.15)))
+#  50 k_base = 10^-15.60 * EXP((-Ea_base / R) * ((1.0 / T_K) - (1.0 / 298.15))) * (ACT("OH-")^0.572)
+#  60 area = 13.8
+#  70 si_term = 1.0 - SR("Albite")
+#  80 IF (si_term < 0) THEN si_term = 0.0
+#  90 rate = area * (k_acid + k_neut + k_base) * si_term
+#  100 moles = rate * TIME
+#  110 SAVE moles
+#  -end
+
+Anorthite
+  -start
+  5 IF (M <= 0) THEN GOTO 100
+  10 R = 8.314 : T_K = TK
+  20 Ea_acid = 58000.0 : Ea_neut = 60000.0
+  30 k_acid = 10^-8.80 * EXP((-Ea_acid / R) * ((1.0 / T_K) - (1.0 / 298.15))) * (ACT("H+")^0.50)
+  40 k_neut = 10^-12.00 * EXP((-Ea_neut / R) * ((1.0 / T_K) - (1.0 / 298.15)))
+  50 area = 14.6                                                     # Reactive surface area (m2/kg)
+  60 si_term = 1.0 - SR("Anorthite")
+  70 IF (si_term < 0) THEN si_term = 0.0
+  80 mass_term = M / M0
+  90 rate = area * (k_acid + k_neut) * si_term * mass_term
+  100 moles = rate * TIME
+  100 SAVE moles
+  -end
+
+Ca-Al_Pyroxene
+  -start
+  5 IF (M <= 0) THEN GOTO 110
+  10 R = 8.314 : T_K = TK
+  20 Ea_acid = 78000.0 : Ea_neut = 78000.0 : Ea_base = 78000.0
+  30 k_acid = 10^-7.5  * EXP((-Ea_acid / R) * ((1.0 / T_K) - (1.0 / 298.15))) * (ACT("H+")^0.7)
+  40 k_neut = 10^-11.2 * EXP((-Ea_neut / R) * ((1.0 / T_K) - (1.0 / 298.15)))
+  50 k_base = 10^-12.3 * EXP((-Ea_base / R) * ((1.0 / T_K) - (1.0 / 298.15))) * (ACT("OH-")^0.22)
+  60 area = 10.1
+  70 si_term = 1.0 - SR("Ca-Al_Pyroxene")
+  80 IF (si_term < 0) THEN si_term = 0.0
+  90 mass_term = M / M0
+  100 rate = area * (k_acid + k_neut + k_base) * si_term * mass_term
+  110 moles = rate * TIME
+  120 SAVE moles
+  -end
+
+Magnetite
+  -start
+  5 IF (M <= 0) THEN GOTO 100
+  10 R = 8.314 : T_K = TK
+  20 Ea_acid = 18600.0 : Ea_neut = 18600.0
+  30 k_acid = 10^-6.4 * EXP((-Ea_acid / R) * ((1.0 / T_K) - (1.0 / 298.15))) * (ACT("H+")^0.5)
+  40 k_neut = 10^-9.8 * EXP((-Ea_neut / R) * ((1.0 / T_K) - (1.0 / 298.15)))
+  50 area = 0.32
+  60 si_term = 1.0 - SR("Magnetite")
+  70 IF (si_term < 0) THEN si_term = 0.0
+  80 mass_term = M / M0
+  90 rate = area * (k_acid + k_neut + k_base) * si_term * mass_term
+  100 moles = rate * TIME
+  110 SAVE moles
+  -end
+
+Glass_Basalt_leached_layer
+  -start
+  5 IF (M <= 0) THEN GOTO 110
+  10 R = 8.314 : T_K = TK
+  20 Ea_acid = 42200.0 : Ea_neut = 32500.0 : Ea_base = 25500.0
+  30 k_acid = 10^-5.6  * EXP((-Ea_acid / R) * ((1.0 / T_K) - (1.0 / 298.15))) * (ACT("H+")^0.5)
+  40 k_neut = 10^-10.9 * EXP((-Ea_neut / R) * ((1.0 / T_K) - (1.0 / 298.15)))
+  50 k_base = 10^-11.65 * EXP((-Ea_base / R) * ((1.0 / T_K) - (1.0 / 298.15))) * (ACT("OH-")^0.20)
+  60 area = 10.5
+  70 si_term = 1.0 - SR("Glass_Basalt_leached_layer")
+  80 IF (si_term < 0) THEN si_term = 0.0
+  90 mass_term = M / M0
+  100 rate = area * (k_acid + k_neut + k_base) * mass_term # Scales rate down as glass dissolves. If dissolves too fast, then model stops running after T = 20 mins.
+  110 moles = rate * TIME
+  120 SAVE moles
+  -end
+# ------------------------------------------------------------------
+# 4. KINETIC BLOCK ASSIGNMENT & SIMULATION EXECUTION
+# ------------------------------------------------------------------
+KINETICS 1
+   # Albite
+   #    -m0      1.65
+    Anorthite 
+        -m0      1.556 #(433 g /278.21 g/mol) = 1.556 moles in 1 kg of water.
+    Ca-Al_Pyroxene
+        -m0      1.20
+    Magnetite
+        -m0      0.0216
+    Glass_Basalt_leached_layer
+        -m0      2.5
+
+    # two years = 63072000 seconds divided into 200 equal steps (15778800 s each)
+    -steps 63072000 in 100 steps
+
+USER_PUNCH
+    -headings Time_Years Porosity_pct Perm_mD Delta_Vol_cm3
+    10 t_yr = TOTAL_TIME / 31557600.0  # Total time in years
+    20 phi_0 = 0.15                       # Initial porosity (fraction)
+    25 k_0 = 500.0                        # Initial permeability (mD) - adjust as needed
+    30 V_fluid = 1000.0
+    40 V_total = V_fluid / phi_0
+
+    # Primary Mineral Dissolution Volume Loss (cm3)
+    #50 dV_alb = (1.65 - KIN("Albite")) * 100.25
+    50 dV_ano = (1.556 - KIN("Anorthite")) * 100.79
+    60 dV_pyr = (1.20 - KIN("Ca-Al_Pyroxene")) * 63.5
+    70 dV_mgt = (0.0216 - KIN("Magnetite")) * 44.524
+    80 dV_gls = (2.5 - KIN("Glass_Basalt_leached_layer")) * 94.55
+
+    # Secondary Mineral Precipitation Volume Gain (cm3)
+    90 dV_cal = EQUI("Calcite") * 36.93
+    100 dV_ara = EQUI("Aragonite") * 34.15
+    110 dV_ank = EQUI("Ankerite") * 66.06
+    120 dV_rho = EQUI("Rhodochrosite") * 31.08
+    #130 dV_sid = EQUI("Siderite") * 29.378
+
+    # Secondary Silicates & Clay Volume Gain (cm3)
+    131 dV_chd = EQUI("Chalcedony") * 22.68
+    132 dV_kao = EQUI("Kaolinite") * 99.52
+    133 dV_smc = EQUI("Montmor-Ca") * 136.01
+    134 dV_mon = EQUI("Montmor-Na") * 137.45
+
+    # Total Net Volume Change
+    140 net_dV_solid = (dV_cal + dV_ara + dV_ank + dV_rho + dV_chd + dV_kao + dV_smc + dV_mon) - (dV_ano + dV_mgt + dV_pyr + dV_gls) #change alb to ano
+    
+    # Calculate Porosity (%) and Permeability (mD)
+    141 phi_pct = (phi_0 - (net_dV_solid / V_total)) * 100.0
+    145 phi_frac = phi_pct / 100.0
+    150 perm_ratio = ((phi_frac / phi_0)^3) * (((1.0 - phi_0) / (1.0 - phi_frac))^2)
+    155 k_mD = k_0 * perm_ratio
+
+    160 PUNCH t_yr, phi_pct, k_mD, net_dV_solid
+
+# ------------------------------------------------------------------
+# 6. GRAPHICAL OUTPUT: POROSITY (%) AND PERMEABILITY (mD)
+# ------------------------------------------------------------------
+USER_GRAPH 1 Porosity and Permeability Evolution
+    -chart_title        "Simulation Evolution (Two Years)"
+    -axis_titles        "Time (Years)" "Primary Y Axis" "Secondary Y Axis"
+    -axis_scale         x_axis auto auto auto auto
+    -axis_scale         y_axis auto auto auto auto
+    -axis_scale         sy_axis auto auto auto auto
+    -plot_concentration_vs x
+  -start
+  10 t_yr = TOTAL_TIME / 31557600.0
+  20 phi_0 = 0.15                         # Initial porosity (fraction)
+  25 k_0 = 500.0                          # Initial permeability (mD)
+  30 V_total = 1000.0 / phi_0
+
+  # Dissolution Volume Loss (cm3)
+  #40 dV_alb = (1.65 - KIN("Albite")) * 100.25
+  40 dV_ano = (1.556 - KIN("Anorthite")) * 100.79
+  50 dV_pyr = (1.20 - KIN("Ca-Al_Pyroxene")) * 63.5
+  60 dV_mgt = (0.0215 - KIN("Magnetite")) * 44.524
+  70 dV_gls = (2.5 - KIN("Glass_Basalt_leached_layer")) * 94.55
+
+  # Precipitation Volume Gain (cm3)
+  80 dV_cal = EQUI("Calcite") * 36.93
+  90 dV_ara = EQUI("Aragonite") * 34.15
+  100 dV_ank = EQUI("Ankerite") * 66.06
+  110 dV_rho = EQUI("Rhodochrosite") * 31.08
+  111 dV_chd = EQUI("Chalcedony") * 22.68
+  112 dV_kao = EQUI("Kaolinite") * 99.52
+  113 dV_smc = EQUI("Montmor-Ca") * 136.01
+  114 dV_mon = EQUI("Montmor-Na") * 136.45
+  #115 dV_sid = EQUI("Siderite") * 29.378
+
+  120 net_dV_solid = (dV_cal + dV_ara + dV_ank + dV_rho + dV_chd + dV_kao + dV_smc + dV_mon) - (dV_ano + dV_mgt + dV_pyr + dV_gls) #change alb to ano
+  
+  # Conversions
+  130 phi_pct = (phi_0 - (net_dV_solid / V_total)) * 100.0
+  135 phi_frac = phi_pct / 100.0
+  140 perm_ratio = ((phi_frac / phi_0)^3) * (((1.0 - phi_0) / (1.0 - phi_frac))^2)
+  145 k_mD = k_0 * perm_ratio
+
+  # Plot Commands
+  150 GRAPH_X t_yr
+  160 GRAPH_Y phi_pct
+  170 GRAPH_SY k_mD
+  -end
+# ------------------------------------------------------------------
+# 7. DATA OUTPUT FILE
+# ------------------------------------------------------------------
+SELECTED_OUTPUT
+    #-file                 Standard.csv
+    -time                 true
+    -pH                   true
+    -user_punch           true
+    -totals             Ca  Mg  C(4) Fe Mn Si       # Total moles of master species/elements
+    -molalities         Ca+2  HCO3-  CO3-2 Fe+2 Fe+3 Mg+2  # Molalities of specific aqueous species
+    -equilibrium_phases   Calcite Ankerite Rhodochrosite Aragonite Glass_Basalt_leached_layer Ca-Al_Pyroxene Anorthite Magnetite Chalcedony Kaolinite Montmor-Ca Montmor
+    -saturation_indices   Calcite Ankerite Rhodochrosite Aragonite Glass_Basalt_leached_layer Ca-Al_Pyroxene Anorthite Magnetite Chalcedony Kaolinite Montmor-Ca Montmor-Na
+END
